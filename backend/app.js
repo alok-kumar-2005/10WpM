@@ -5,8 +5,24 @@ import { Server } from "socket.io";
 const port = process.env.PORT || 3000;
 const app = express();
 const server = createServer(app);
+const allowedOrigins = new Set([
+  "https://one0wpm.onrender.com",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...[
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  ]
+    .filter(Boolean)
+    .map((host) => `https://${host}`),
+]);
 const io = new Server(server, {
-  cors: { origin: ["https://one0wpm.onrender.com","http://localhost:5173", "http://127.0.0.1:5173"], methods: ["GET", "POST"], credentials: true },
+  transports: ["websocket"],
+  cors: { origin: [...allowedOrigins], methods: ["GET", "POST"], credentials: true },
+  allowRequest: (req, callback) => {
+    callback(null, typeof req.headers.origin === "string" && allowedOrigins.has(req.headers.origin));
+  },
 });
 
 const wordPools = {
@@ -154,4 +170,6 @@ io.on("connection", (socket) => {
 });
 
 app.get("/", (_req, res) => res.json({ status: "ok", message: "10WPM server is running" }));
-server.listen(port, () => console.log(`listening on port ${port}`));
+if (!process.env.VERCEL) server.listen(port, () => console.log(`listening on port ${port}`));
+
+export default server;

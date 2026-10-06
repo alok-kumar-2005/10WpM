@@ -155,26 +155,32 @@ To test multiplayer locally, open the frontend in two browser windows. Create a 
 
 ## Environment configuration
 
-The frontend connects to `http://localhost:3000` by default. To use a different backend, copy the example environment file:
+The frontend connects to the current origin by default. During local Vite
+development, `/socket.io` is proxied to `http://localhost:3000`, so no frontend
+environment variable is needed for the standard two-terminal setup.
 
-```bash
-cd frontend
-cp .env.example .env
-```
+Set `VITE_SOCKET_URL` in `frontend/.env.local` only when connecting to a backend
+at a different URL. Vite embeds this value at build time, so restart Vite after
+changing it and rebuild the frontend for production.
 
-On PowerShell:
+The backend uses `PORT` when running locally and defaults to `3000`. Vercel
+manages the function runtime port; do not set a production `PORT` value.
 
-```powershell
-Copy-Item .env.example .env
-```
+## Deploying on Vercel
 
-Set the server URL:
+The root `vercel.json` defines separate `backend` (Express) and `frontend`
+(Vite) services. The frontend handles all ordinary paths, while requests under
+`/socket.io/` are routed to the backend. The browser connects to the same
+deployment origin and uses WebSocket transport, as required for Socket.IO on
+Vercel Functions. No service binding or deployment environment variable is
+needed for this same-origin setup.
 
-```env
-VITE_SOCKET_URL=http://localhost:3000
-```
+The backend's `GET /` health route is available when running locally; the
+Vercel rewrites do not expose a separate HTTP API or health-check path.
 
-Restart Vite whenever an environment variable changes.
+Vercel WebSocket support is currently documented as a beta feature. Also note
+that room state is held in process memory: clients connected to different
+function instances will not share rooms or scores.
 
 ## Available scripts
 
@@ -285,9 +291,9 @@ Important Socket.IO events include:
 
 ## Current storage limitation
 
-Rooms and scores are stored in server memory. Restarting the backend clears all rooms and ongoing matches. Multiple backend instances will not share room state.
+Rooms and scores are stored in server memory. Restarting the backend clears all rooms and ongoing matches. On Vercel, separate function instances do not share room state, so multiplayer is not reliable when clients reach different instances.
 
-For horizontal scaling or persistent accounts, add a shared store such as Redis and configure the Socket.IO Redis adapter.
+For reliable multiplayer across instances or persistent accounts, add shared room state such as Redis and configure the Socket.IO Redis adapter.
 
 ## Troubleshooting
 
@@ -295,9 +301,8 @@ For horizontal scaling or persistent accounts, add a shared store such as Redis 
 
 - Confirm the backend is running on port `3000`.
 - Open [http://localhost:3000](http://localhost:3000) and check the health response.
-- Verify `VITE_SOCKET_URL`.
-- Restart the Vite server after changing `.env`.
-- Check that the frontend origin is allowed by backend CORS.
+- Confirm the frontend uses the same origin as the backend, or set `VITE_SOCKET_URL` when using a separate backend.
+- Restart Vite after changing `.env.local`.
 
 ### A room code does not work
 
